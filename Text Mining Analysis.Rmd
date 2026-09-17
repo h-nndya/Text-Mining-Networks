@@ -1,0 +1,390 @@
+---
+title: "Text Mining Analysis"
+output: pdf_document
+date: "2025-05-28"
+---
+question 3
+Follow the text processing steps covered in lectures and applied sessions to create your
+Document-Term Matrix (DTM).
+• As part of this process, you may need to make particular text transformations to
+preserve key words, or remove unwanted terms, unwanted characters or artefacts
+from the original formatting. Describe this processing in your report or state why
+you did not need to do so.
+• Your DTM should contain approximately 25 tokens after you have removed sparse
+terms. You will need to do this by trial-and-error to get the right number of tokens.
+• Include your DTM as a table in the appendix of your report. (3 Marks)
+
+As part of the text transformation process, any hyphens were replaced with spaces using the content transformer function. No further pre-processing was required as documents did not contain special formatting of keywords.
+```{r}
+rm(list = ls())
+install.packages("tm") 
+install.packages("slam")
+install.packages("SnowballC")
+install.packages('proxy')
+install.packages("SentimentAnalysis")
+install.packages('igraph')
+library(slam)
+library(tm)
+library(SnowballC)
+
+```
+
+```{r}
+# Create corpus
+cname <- file.path(".", "CorpusAbstracts")
+
+if (!dir.exists(cname)) {
+  stop("Cannot find CorpusAbstracts folder.")
+}
+
+# Summary of docs to analyse
+docs <- Corpus(DirSource(cname))
+summary(docs)
+```
+
+```{r}
+# Specific text transformations
+# Hyphen to space
+toSpace = content_transformer(function(x, pattern)
+gsub(pattern, " ", x))
+docs = tm_map(docs, toSpace, "-")
+# Tokenisation and stemming 
+docs = tm_map(docs, removeNumbers)
+docs = tm_map(docs, removePunctuation)
+docs = tm_map(docs, content_transformer(tolower))
+docs = tm_map(docs, removeWords, stopwords("english"))
+docs = tm_map(docs, stripWhitespace)
+docs = tm_map(docs, stemDocument, language =
+"english")
+```
+
+```{r fig.height=15, fig.width=20}
+# Create document term matrix
+dtm = DocumentTermMatrix(docs)
+inspect(dtm)
+
+# Remove sparse terms i.e cols with at least 45% empty cells
+dim(dtm)
+dtms = removeSparseTerms(dtm, 0.45)
+inspect(dtms)
+dtmsx = as.matrix(dtms)
+knitr::kable(dtmsx)
+```
+
+qs 4 
+Create a hierarchical clustering of your corpus and show this as a dendrogram.
+• Use the cosine distance between each document for clustering.
+• Identify which cluster each document belongs to.
+• Calculate the accuracy of the clustering by genre.
+• Give a qualitative description of the quality of the clustering using examples from
+the texts where appropriate. (4 Marks)
+Cosine distance is basically a metric for measuring how different two documents are based on the words they contain.
+They could discuss exactly the same topic, but Doc B naturally has much larger word counts.
+
+Cosine similarity focuses on the direction/pattern of the word vectors, rather than their absolute size.
+Cosine distance measures how dissimilar documents are based on the pattern of terms they contain, making it useful for clustering text documents regardless of their overall length.
+
+And then your accuracy by genre is asking a slightly different question:
+
+"Do the clusters created from word usage correspond to the genres that I already know these documents belong to?
+That's actually a nice distinction: cosine distance creates the similarity measure; hierarchical clustering uses those distances to form the clusters; genre is then used afterward to evaluate how meaningful those clusters are.
+By clustering each genre/group based on the largest group and then by the cluster that produces the highest accuracy ((book (1), politics (2), sports(3), travel(4))), the accuracy is 14/20 = 70%. 
+
+As seen from the table and dendogram, books are mainly clustered into groups 1. In particular, book3 and book5 are similar in the way that familial characters are introduced in the passage. Books 1, 2 and 4 both talk about the main characters room mates/place of residence (Sherlock and Watson, Jane Eyre in Mr. and Mrs. Reed's house, Sorelli’s dressing-room). 
+
+As for politics, it is split between group 1 and 2. Politics 1 and 4 both talk about devastating news regarding children (Israel's violence against children and missing teenager in QLD), politics 3 and 5 involve diplomatic relations between 2 countries (Australian man found smuggling cocaine in Bali and meeting with Turkiye's president and Pakistan's PM). Politics2 talks about Pope Leo praying for China's Catholics, which is slightly different from the rest, hence why it is in a separate group.  
+
+Sports was mainly clustering in group 3 with two in group 1. Sports 2, 4, and 5 had news about team mate dropouts/issues across different NRL teams (NRL Wests Tigers, NRL Bulldogs, NRL NSW Blues), sports was about a  team player's sports injury while sports 3 was about protest against cuts to gender equity programs.
+
+Lastly, travel was categorised into groups 3 and 4. Travel 1, 2 and 5 spoke about travelling safety and etiquette tips (Shanghai, hitchhiking advice, guide on preparing to travel around the world). Travel 3 and 4 had mentions of the travelers interactions with locals and their customs. 
+
+
+```{r}
+# Create document-term matrix
+library(proxy)
+write.csv(dtmsx, 'dtms.csv')
+# Calculate cosine distance 
+distmatrix <- proxy::dist(dtmsx, method = 'cosine')
+# Graph dendogram of hierarchical clustering
+fit = hclust(distmatrix, method = 'ward.D')
+plot(fit, hang = -1, main = 'Abstracts Cosine Distance')
+# Confusion matrix 
+topics <- c(rep("book", 5), rep("sports", 5))
+#,'book', 'book', 'book', 'book', 'politics', 'politics', 'politics', 'politics', 'politics', 'sports', 'sports', 'sports', 'sports', 'sports', 'travel', 'travel', 'travel', 'travel', 'travel')
+
+groups <- cutree(fit, k=2)
+TA <- table(GroupNames = topics, Clusters = groups)
+TA
+
+
+# maximum accuracy 
+
+```
+
+
+qs 5
+Analyse the sentiment of each document in your corpus using one of the methods
+covered in Week 11.
+• Describe how you performed your sentiment analysis, and dictionary used.
+• Is there a difference in sentiment between genres, for example average level or
+variability? Are these differences significant? (3 Marks)
+
+To perform the sentiment analysis of my corpus I used the reduced Document Term matrix and the package SentimentAnalysis. The dictionary I chose were QDAP and GI with their respective measures. Plotting each group of documents side by side, faceting by sentiment analysis measure, resulted in the following:
+
+- choose which dic u wanna use (research what theyre good for)
+- compare 
+```{r fig.height=17, fig.width=20}
+library(SentimentAnalysis)
+
+sentiment_docs <- analyzeSentiment(docs)
+
+# Create data frame from corpus summary
+names <- as.data.frame(as.table(summary(docs)))
+names$Topic <- sub("[0-9]+\\.txt$", "", names$Var1)
+names <- names[, c("Var1", "Topic")]
+colnames(names) <- c("Document", "Group")
+sentiment_docs <- cbind(names, sentiment_docs)
+
+sentiment_docs
+
+# write.csv(x = sentiment_docs, "Sentiment Newsgroups Groups.csv")
+
+# Plot sentiment measures
+par( mfrow= c(2,2) )
+boxplot(WordCount ~ Group, data = sentiment_docs, frame =TRUE)
+boxplot(SentimentQDAP ~ Group, data = sentiment_docs, frame = TRUE)
+boxplot(PositivityQDAP ~ Group, data = sentiment_docs, frame = TRUE)
+boxplot(RatioUncertaintyLM ~ Group, data = sentiment_docs, frame = TRUE)
+
+```
+
+I ran t-tests and F-tests to test the hypothesis of whether PositivtyQDAP for Sports is greater than Politics, if the NegativityQDAP for Travel was lower than Sports, and if the variability of the RatioUncertaintyLM for Politics is different to that of Sports. 
+
+For the first test, we reject the null in favour of the alternative hypothesis that the average PositivtyQDAP score for Sports is greater than the average for Politics at a 0.005 significance level (p=0.002556). 
+
+For the second, we also reject the null in favour of the alternative hypothesis that the average NegativityQDAP score for Travel is less than the average for Sports at a 0.05 significance level (p=0.003371). 
+
+For the last test, we do not reject the null that the variability in the RatioUncertaintyLM score for Politics and Sports are proportionally the same at a 0.05 significance level (p=0.06492). However, conducting a 2-sided F-test the RatioUncertaintyLM scores of Politics and Books, we do reject the null in favour of the alternative, that their true ratios of variances is not equal to 1 at the same confidence level (p=0.005979).
+```{r}
+book = sentiment_docs[sentiment_docs$Group == "boo",]
+politics = sentiment_docs[sentiment_docs$Group == "pol",]
+sports = sentiment_docs[sentiment_docs$Group == "spo",]
+travel = sentiment_docs[sentiment_docs$Group == "tra",]
+
+t.test(sports[,c('PositivityQDAP')], politics[,c('PositivityQDAP')], alternative = "greater")
+
+t.test(travel[,c('NegativityQDAP')], sports[,c('NegativityQDAP')], alternative = "less")
+
+var.test(politics[,c('RatioUncertaintyLM')], sports[,c('RatioUncertaintyLM')])
+
+var.test(politics[,c('RatioUncertaintyLM')], book[,c('RatioUncertaintyLM')])
+```
+qs 6
+Create a single-mode network showing the connections between the documents based
+on the number of shared terms.
+• To do this you will need to first calculate the connections between each document
+using the method shown in Week 11, or another method of your choice.
+• What does this graph tell you about the relationship between the documents? Are
+there any groups in the data you can clearly identify? What are the most important
+(central) documents in the network?
+• Improve your graph over the basic example given in Week 11 to highlight as many
+interesting features of the data you can. For example, the strength of connections,
+the relative importance of nodes, sentiment, genres, groups. (3 Marks)
+
+From the table, we see that the betweeness score is the highest for Politics1, followed by Sports2 and Politics5, denoting they are the most important. These had the 3 highest scores respectively for closeness as well. As for eigenvector centrality, the theme Books and Travel dominate this measure. Since the graph is a simple connected one, all vertex have degree 19 (n-1). Looking at the graph holistically, the diameter is 15 and the average path length is 9.62. Both density and transitivity are equal to 1 meaning the maximum possible number of edges/triples exist in the entire graph. Greatest size of cliques were of size 10. 
+From the graph, we see that the largest group (group1, green) is also the most influential, as shown by the node size indicating greater eigenvector centrality. By using the Fruchterman Reingold layout we also see that the middle nodes are the most connected nodes, whereas the outer ones such as Sports2 Politics5 and Politics1 appear to have less connections to the rest of the nodes. However, compared to the central nodes, they have higher betweeness centrality scores. Books and Travel appear to have more connectedness as they are clustered closer together. In terms of edge width, strongest weighted path mostly involve Travel 2and Travel5 to documents from the Books category. This also coincides with Travel2's high influential power due to its central position in the network. 
+
+```{r fig.height=7, fig.width=20}
+# Abstracts Network Graph 
+# Convert to binary matrix
+dtmsb = as.matrix((dtmsx > 0) + 0)
+# Multiply binary matrix by its transpose
+absmatrix = dtmsb %*% t(dtmsb)
+# Make leading diagonal zero
+diag(absmatrix) = 0
+
+knitr::kable(absmatrix)
+```
+
+```{r fig.height=20, fig.width=20}
+library(igraph)
+
+# Create graph object
+abs_single = graph_from_adjacency_matrix(absmatrix, mode = "undirected", weighted = TRUE)
+plot(abs_single)
+
+# Graph summary including centrality
+cat('Is simple?',is_simple(abs_single))
+cat('Is connected?',is_connected(abs_single))
+cat('\nDiameter?', diameter(abs_single))
+cat('\nAvg path length?',mean_distance(abs_single))
+cat('\nEdge density?',edge_density(abs_single))
+cat('\nTransitivity?',transitivity(abs_single))
+bet_abs = betweenness(abs_single)
+close_abs = closeness(abs_single)
+deg_abs = degree(abs_single)
+eig_abs = eigen_centrality(abs_single)$vector
+abs_table = cbind(deg_abs, bet_abs, close_abs, eig_abs)
+knitr::kable(abs_table)
+
+# Improved plot
+cols = c('cadetblue4', 'azure3', "slategray3", "slategrey")
+grp_col = cols[groups]
+
+plot(abs_single, vertex.color = grp_col, layout=layout.fruchterman.reingold, main="Document single node network", vertex.size = eig_abs*15, vertex.label.color = 'black', vertex.label.font=2, vertex.label.cex=1, edge.width = as.numeric(E(abs_single)$weight)*0.2, edge.color = "grey67", vertex.shape = 'square')
+
+legend('topleft', legend = unique(as.factor(groups)), col = unique(grp_col), pch=20, bty = 'n', pt.cex = 5, cex = 2.5, title = 'Hierarchical clustering groups', xjust = -5)
+
+```
+
+qs 7
+Repeat all the activities in Question 6, but now looking at the words (tokens).
+
+From the table, we see that the betweeness score is the highest for tokens 'start', 'may', and 'last'. These 3 tokens, along with 'face' had the highest scores for closeness as well. As for eigenvector centrality, tokens 'will', 'one', 'said', and 'make' dominate this measure. Similar to the last question, closeness and betweeness centrality procured similar results, whereas eigenvector centrality tended to have inverse results. 
+
+Since the graph is again a simple and connected one, all vertex have degree 24 (n-1). Looking at the graph holistically, the diameter is 162 and the average path length is 65.3. Both density and transitivity are equal to 1 meaning the maximum possible number of edges/triples exist in the entire graph. Greatest size of cliques were of size 25. 
+
+Using the cluster edge betweeness algorithm classifies all tokens into the same group so we use a fast greedy cluster algorithm. Doing so clusters the tokens into 2 groups (as seen on the graph). Some similar tokens from Group 1 are 'say' and 'said','look' and 'see', 'day' and 'year'. Similar themed tokens from Group 2 include 'will', 'may' and 'start' which indicates the potential initiation of something. 
+From the graph, we see a majority of Group 2 tokens are influential, such as 'will' as shown by the node size indicating greater eigenvector centrality and their central position on the graph indicating connectedness. By using the fruchterman.reingold layout we see that the outer nodes such as 'say', 'without', 'last', and 'may', appear to have less connections to the rest of the nodes. However, compared to the central nodes, they have higher betweeness centrality scores. 'Will', 'one', and 'get' appear to have more connectedness as they are clustered closer together. Edge width represent the weights of each path, which indicates that the highest weighted paths often involve 'will', 'make', and 'get'. Similar to before, these tokens coincide with the inner most central tokens, along with 'one' and 'said'. 
+
+```{r}
+# mul]ply transpose binary matrix by binary matrix
+tokmatrix = t(dtmsx) %*% dtmsx
+# make leading diagonal zero
+diag(tokmatrix) = 0
+knitr::kable(tokmatrix)
+```
+
+```{r fig.height=20, fig.width=20}
+# create graph object
+tok_single = graph_from_adjacency_matrix(tokmatrix, mode = "undirected", weighted = TRUE)
+plot(tok_single)
+
+# Graph summary including centrality
+cat('\nIs simple?',is_simple(tok_single))
+cat('\nIs connected?',is_connected(tok_single))
+cat('\nDiameter?', diameter(tok_single))
+cat('\nAvg path length?',mean_distance(tok_single))
+cat('\nEdge density?',edge_density(tok_single))
+cat('\nTransitivity?',transitivity(tok_single))
+bet_tok = betweenness(tok_single)
+close_tok = closeness(tok_single)
+deg_tok = degree(tok_single)
+eig_tok = eigen_centrality(tok_single)$vector
+tok_table = cbind(deg_tok, bet_tok, close_tok, eig_tok)
+cat('\nSize of largest clique?',clique_num(tok_single))
+knitr::kable(tok_table)
+
+# Find token groups using 2 methods
+ceb_tok = cluster_edge_betweenness(tok_single)
+cfg_tok = cluster_fast_greedy(tok_single)
+
+# create plots for each
+par(mfrow = c(2,2))
+g_ceb_tok = plot(ceb_tok,
+tok_single,main="Edge Betweenness")
+g_cfg_tok = plot(cfg_tok, tok_single,main="Fast
+Greedy")
+```
+
+
+```{r fig.height=20, fig.width=20}
+# Improved plot
+cols2 = c("thistle4", 'lavenderblush3')
+cfg_col = cols2[membership(cfg_tok)]
+
+plot(tok_single, layout=layout.fruchterman.reingold, main="Token single node network",  vertex.size = eig_tok*27, vertex.label.color = 'black', vertex.label.cex=2, vertex.color = cfg_col, edge.width = E(tok_single)$weight*0.01, edge.width = as.numeric(E(tok_single)$weight))
+
+legend('topleft', legend = unique(levels(as.factor(membership(cfg_tok)))), col = unique(cfg_col), pch=20, bty = 'n', pt.cex = 5, cex = 2.5, title = 'CFG communities')
+
+```
+
+qs 8
+Create a bipartite (two-mode) network of your corpus, with document ID as one type of
+node and tokens as the other type of node.
+• To do this you will need to transform your data into a suitable format.
+
+From the original bipartite graph, we can see that the Book and Travel documents are clustered in the center, and surrounded by tokens such as 'one', 'day', and 'first', 'one', and 'will'. A majority of the tokens lie further away from the center, indicating lower influential power/eigenvector centrality score. A majority of the Politics documents lie outside of the network, indicating lower influential power. 
+
+```{r}
+# Transforming to suitable format
+dtms_df = as.data.frame(dtmsx)
+dtms_df$ABS = rownames(dtms_df)
+dtmsb2 = data.frame()
+for (i in 1:nrow(dtms_df)){
+  for (j in 1:(ncol(dtms_df)-1)){
+    touse = cbind(dtms_df[i,j], dtms_df[i,ncol(dtms_df)], colnames(dtms_df[j]))
+dtmsb2 = rbind(dtmsb2, touse ) } } # close loops
+colnames(dtmsb2) = c("weight", "abs", "token")
+dtmsc = dtmsb2[dtmsb2$weight != 0,] # delete 0 weights
+dtmsc = dtmsc[,c(2,3,1)]
+dtmsc
+```
+```{r fig.height=15, fig.width=20}
+# create bipartite graph
+g <- graph.data.frame(dtmsc, directed=FALSE)
+bipartite_mapping(g)
+V(g)$type <- bipartite_mapping(g)$type
+V(g)$shape <- ifelse(V(g)$type, "circle", "square")
+V(g)$color <- ifelse(V(g)$type, "lightgreen", "pink")
+plot(g, layout = layout.fruchterman.reingold)
+
+# Centrality measures
+cat('\nIs simple?',is_simple(g))
+cat('\nIs connected?',is_connected(g))
+cat('\nDiameter?', diameter(g))
+cat('\nAvg path length?',mean_distance(g))
+cat('\nEdge density?',edge_density(g))
+cat('\nTransitivity?',transitivity(g))
+bet_bip = betweenness(g)
+close_bip = closeness(g)
+deg_bip = degree(g)
+eig_bip = eigen_centrality(g)$vector
+bip_table = cbind(deg_bip, bet_bip, close_bip, eig_bip)
+knitr::kable(bip_table)
+
+# Find token groups using 2 methods
+cfg_bip = cluster_fast_greedy(g)
+plot(cfg_bip, g,main="Fast Greedy")
+cfg_bip
+```
+
+
+```{r fig.height=20, fig.width=20}
+# Improved plot
+cols3 = c('lightsteelblue',"honeydew3","seashell3", 'mistyrose4', 'paleturquoise4')
+cfg_col2 = cols3[membership(cfg_bip)]
+g <- graph.data.frame(dtmsc, directed=FALSE)
+V(g)$type <- bipartite_mapping(g)$type
+V(g)$color <- cfg_col2
+V(g)$shape <- ifelse(V(g)$type, "circle", "square")
+V(g)$label.color = "black"
+V(g)$size = deg_bip*0.5
+V(g)$label.font = ifelse(V(g)$type,3,1)
+V(g)$label.cex = ifelse(V(g)$type,1.2,1.3)
+E(g)$color <- "grey67"
+E(g)$width = as.numeric(E(g)$weight)*0.5
+plot(g, layout = layout.fruchterman.reingold)
+legend('topleft', legend = unique(levels(as.factor(membership(cfg_bip)))), col = unique(cfg_col2), pch=20, bty = 'n', pt.cex = 5, cex = 2.5, title = 'CFG communities')
+?weightTfIdf
+```
+From the improved the graph where documents are represented by square vertices and tokens square ones, size is dictated based in the degrees of the vertices, indicating that documents such as Book1, Book2, Travel2, and Travel5 and tokens such as 'come' and 'will' have the greatest number of edges to connected to it. Edge width sizes are indicated based on the edge weights meaning greatest weighted path occur between Travel2 and 'get', or Book2 and 'said'. Least important vertices can be concluded by those on the other network such as Sports2, Politics5, Politics3, Politics1, and Politics2. However, despite having less influential power, document Politics2 has a higher degree of edges. Overall, documents have more influential power compared to tokens, with less important tokens being 'alway', 'even', 'look', 'without', and 'start'.  
+
+Applying the Fast Greedy algorithm, we see that 5 communities are formed, the first group (13 vertices) mainly consisting of documents from Politics, and comprise of the most influential tokens such as 'come', 'said', and 'year' (closer to center). Most important documents are Sports1 and Book1. Notable relationships in this group include a heavily weighted edge between Book1 and 'said' perhaps due to the fictional nature of the book, as well as Politics3 and 'may' and 'said', expressing uncertainty as well as testimonies. 
+The second group (4 vertices) consists of only one document of high importance and degree, Book2, and is associated with tokens 'never', 'say', and 'like'. For similar reasons as above, Book2 has heavier weights with 'say' and 'like'.
+The third group (13 vertices) has a majority of its documents in the center of the network, indicating higher influential power and mainly include documents from the Book category. This group contains some influential tokens such as 'one', 'first', and 'day', while a majority lie on the outskirts of the network, indicating low importance. There is a strong weighted path between Book4 and Book5 with 'one', and a close association with tokens 'alway', 'even', and 'look' due to their close proximity. 
+The fourth group (11 vertices) consist mainly of documents from the Travel and Sports categories, with Travel2, Travel5, and Sports5 being the most influential. This group also consists of the heavier edge widths between its vertices (Travel5 and 'will', 'make'; potentially expressing the making of plans to travel), indicating greater weight. Influential tokens in this group include 'will' and 'get'. Travel2 and Travel5 are closely connected, as are tokens 'take', 'will' and 'get'. 
+As for the last group, (3 vertices), it forms the smallest community out of all 5 communities, involving document Travel3, which is influential but not as important as its neighboring documents, as well as tokens 'just' and 'without', both not very important. Tokens associated with this document are 'without' and 'just' potentially indicating travel tips/requirements.
+
+qs 9 
+
+Across the document network, we see that Book1, Book2, Book4, Travel2, and Travel5 are some of the most influential documents, which coincides with the bipartite network which also have them positioned in the center. Between documents, the paths with the greatest weights pass through Travel2, Travel5, and Book1. Both the hierarchical clustering identifies Travel3 and Travel4 to be of the same cluster (4), which can be seen by their close proximity in the bipartite graph indicating close relation. Those in cluster 3, such as Travel1, Travel2, Travel5, Sports4, and Sports5 are classified by Fast Greedy algorithm to be in the same community (4). There is a heavily weighted path between Travel1 and Travel2, and their relationship can be reflected in the bipartite graph where they are close neighbours. As for the 2nd clustering group, Politics1, Politics3, Politics4, and Politics5 appear on the outer ring of both the document single node network as well as the bipartite network, indicating low influential strength and centrality measures. They are also categorised into the same community by the FG algorithm (1). The first cluster consists of the most documents, mainly comprising of the Books. Although not all Books are in the same community, they all lie within close proximity to each other, and form a central group of the bipartiite graph, as indicated by the document network as having high eigenvector centrality. 
+
+Influential tokens as identified by the tokens netwrok include 'will', 'get', 'make', 'like', and 'take' from the first community, and 'one', 'said', 'first', and 'year' from the second. The highest weighted paths pass through mainly 'will', 'get', and 'make'. From the bipartite graph, we see that 'will', 'get', 'make', and 'take' are part of the same community as well (4), while 'like' is not but is very close. From the 2nd token community, we see that in the bipartite graph, 'one' and 'first' are part of the same group (3) while 'said' and 'year' are part of another (3). There are also similarities with the lack of importance of some tokens, as indicated by their large distance form the center in both the token and bipartite network, such as 'without', 'start', and 'say'. 
+
+Relationships between documents and tokens are reflected by their close proximity, similar communities, and strength of paths. Heavier weighted paths between documents and tokens include those between Travel2, Travel5 and 'will', 'get'; Book1, Book2 and 'said'; Book2, Book4 and 'like'; Book2 and 'say'; Sports1, Book3, Travel4 and 'day'. Documents and tokens within the same community also often heavier weighted paths, if not in close proximity to each other. 
+
+Overall, hierarchical clustering returns a more accurate grouping of documents (accuracy = 70%), however network analysis is more effective in identifying other relationships between documents as well as across both documents and tokens. Network analysis is also more effective in illustrating these relationships as vertices and edges can be modified/positioned strategically to reflect these connections. 
+
+To improve the text processing, specific text transformations using gsub can be used if contents of documents are known to filter out unimportant words. A greater number of sparse terms can also be removed. To further filter out the important vertices in the DTM, a weighted similarity distance measure can be applied such as the weight by term frequency or inverse document frequency, which can be applied using the 'weightTf' or 'weightTfIdf' functions under the 'tm' package. This extra step gives heavier weight on rare words and IDF is calculated by 1 plus the log of the total number of documents divided by the number of documents containing t. This prevents common words such as stop words from dominating the DTM, and instead focuses on terms that give information about the topic of the document. 
+
