@@ -12,14 +12,16 @@ relationships between themes across a collection of documents.
 
 - Text preprocessing and cleaning
 - Document-term matrix construction
-- Theme identification
-- Similarity/network analysis
-- Visualisation of relationships between documents/themes
+- Similarity/network analysis using hierarchical clustering 
+- Statistical hypthesis testing
+- Sentiment Analysis
+- Theme identification using cluster algorithms
+- Visualisation of relationships between documents/themes using bipartite graphs
 
 ## Customisation
 
 Users can provide their own collection of `.txt` documents to create
-a custom corpus for analysis.
+a custom corpus for analysis with customisable number of pre-determined themes.
 
 ## Tools
 
