@@ -11,9 +11,9 @@ relationships between themes across a collection of documents.
 ## Features
 
 - Text preprocessing and cleaning
-- Document-term matrix construction
+- Document-term matrix construction 
 - Similarity/network analysis using hierarchical clustering 
-- Statistical hypthesis testing
+- Statistical hypthesis testing and visualisations
 - Sentiment Analysis
 - Theme identification using cluster algorithms
 - Visualisation of relationships between documents/themes using bipartite graphs
