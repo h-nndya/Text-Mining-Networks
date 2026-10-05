@@ -229,9 +229,9 @@ groups <- cutree(fit, k = k)
 groups
 
 # The following assumes filenames contain a category followed by a number, for example:
-# book1.txt
-# sports2.txt
-# travel5.txt
+# book1.txt -> book
+# sports2.txt -> sports
+# travel5.txt -> travel
 #
 # Modify the pattern if your filenames use another structure.
 doc_names <- rownames(dtmsx)
@@ -296,7 +296,6 @@ cluster_accuracy <- function(TA) {
 
 accuracy <- cluster_accuracy(TA)
 cat("Clustering accuracy:", round(accuracy * 100, 2), "%")
-
 ```
 ---
 

@@ -25,9 +25,26 @@ other corpora.
 Users can provide their own collection of `.txt` documents to create
 a custom corpus for analysis with customisable number of pre-determined themes.
 
-## Tools
+## Requirements
 
 - R
-- R Markdown
-- Text mining
-- Network analysis
+- RStudio recommended
+- R packages:
+  - tm
+  - slam
+  - SnowballC
+  - proxy
+  - SentimentAnalysis
+  - igraph
+  
+## Project Structure
+
+Text-Mining-Analysis/
+│
+├── Text_Mining_Analysis.Rmd
+├── README.md
+├── .gitignore
+├── Text-Mining-Analysis.Rproj
+│
+└── CorpusAbstracts/
+    └── [user-provided .txt files]
