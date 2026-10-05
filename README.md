@@ -39,6 +39,11 @@ a custom corpus for analysis with customisable number of pre-determined themes.
   
 ## Project Structure
 
+CorpusAbstracts/ is excluded from version control. 
+Add your own .txt documents to this folder before running the analysis. 
+File names should follow the format groupname1.txt, groupname2.txt, etc., 
+so that document groups can be identified automatically.
+```
 Text-Mining-Analysis/
 │
 ├── Text_Mining_Analysis.Rmd
@@ -47,8 +52,9 @@ Text-Mining-Analysis/
 ├── Text-Mining-Analysis.Rproj
 │
 └── CorpusAbstracts/
-    └── [user-provided .txt files such as: ]
-    └── [book1.txt]
-    └── [book2.txt]
-    └── [sports1.txt]
-    └── [sports2.txt]
+    ├── book1.txt
+    ├── book2.txt
+    ├── sports1.txt
+    ├── sports2.txt
+    └── ...your .txt files
+```
