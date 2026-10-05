@@ -47,4 +47,8 @@ Text-Mining-Analysis/
 ├── Text-Mining-Analysis.Rproj
 │
 └── CorpusAbstracts/
-    └── [user-provided .txt files]
+    └── [user-provided .txt files such as: ]
+    └── [book1.txt]
+    └── [book2.txt]
+    └── [sports1.txt]
+    └── [sports2.txt]
