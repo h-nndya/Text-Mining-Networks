@@ -15,6 +15,26 @@ The analysis is designed to be **customisable**. Users can replace the example c
 
 Throughout the analysis, the user should interpret the results in the context of their own documents rather than assuming that the patterns identified in an example corpus will apply to every corpus.
 
+```{r}
+# USER SETIINGS PLEASE MODIFY
+
+# Name of corpus folder
+corpus_folder <- "CorpusAbstracts"
+
+# Customise the sparse threshold between 0 and 1
+sparse_threshold <- 0.45
+
+# Change k according to the number of clusters you want to investigate
+k <- 4
+
+# Clustering method for hierarchical clustering
+clustering_method <- "ward.D"
+
+# Matrix vector distance method
+distance_method <- "cosine"
+```
+
+
 ---
 
 # Document-Term Matrix
@@ -34,13 +54,25 @@ The exact preprocessing required depends on the corpus. For example, hyphenated 
 rm(list = ls())
 
 # Install packages if they are not already installed.
-install.packages("tm")
-install.packages("slam")
-install.packages("SnowballC")
-install.packages("proxy")
-install.packages("SentimentAnalysis")
-install.packages("igraph")
+packages <- c(
+  "tm",
+  "slam",
+  "SnowballC",
+  "proxy",
+  "SentimentAnalysis",
+  "igraph"
+)
 
+installed <- rownames(installed.packages())
+
+missing <- packages[!(packages %in% installed)]
+
+if (length(missing) > 0) {
+  install.packages(missing)
+}
+```
+
+```{r}
 # Load packages required for the analysis.
 library(slam)
 library(tm)
@@ -62,27 +94,26 @@ Sports2.txt
 ```{r}
 # Create corpus
 tryCatch({
-  cname <- file.path(".", "CorpusAbstracts")
+  cname <- file.path(".", corpus_folder)
   if (!dir.exists(cname)) {
-    stop("Corpus folder 'CorpusAbstracts' was not found.")
+    stop("Corpus folder, ", corpus_folder, " was not found.")
   }
   # Summary of docs to analyse
   docs <- Corpus(DirSource(cname))
   if (length(docs) == 0) {
-    stop("The CorpusAbstracts folder is empty. Please add .txt files.")
+    stop("The ", corpus_folder, " folder is empty. Please add .txt files.")
   }
   if (length(docs) < 2) {
   stop("At least 2 documents are required for clustering.")
   }
   message("Corpus successfully loaded.")
 }, error = function(e) {
-  message(
-    "Unable to load corpus.\n",
-    "Please check that:\n",
-    "1. A folder called 'CorpusAbstracts' exists in the project directory.\n",
-    "2. The folder contains .txt files.\n",
-    "3. The files can be read."
-  )
+  message( 
+    "Unable to load corpus.\n", 
+    "Please check that:\n", 
+    paste0("1. A folder called '", corpus_folder, "' exists in the project directory.\n"), 
+    "2. The folder contains .txt files.\n", 
+    "3. The files can be read." )
 })
 
 summary(docs)
@@ -130,9 +161,6 @@ The DTM is created from the processed corpus. Initially, the DTM may contain a l
 The sparsity threshold determines how much of the DTM must contain zero values before a term is removed. The threshold should generally be adjusted through trial and error to obtain a manageable number of useful terms.
 
 ```{r}
-# Customise the sparse threshold between 0 and 1
-sparse_threshold = 0.45
-
 tryCatch({
   # Create document term matrix
   dtm <- DocumentTermMatrix(docs)
@@ -177,8 +205,7 @@ This is useful for text analysis because two documents can discuss similar topic
 Hierarchical clustering uses the calculated distances to progressively combine similar documents into groups. The resulting dendrogram provides a visual representation of these relationships.
 
 ```{r fig.height=15, fig.width=20}
-# Change k according to the number of clusters you want to investigate
-k <- 2
+# Check k is valid
 if (!is.numeric(k) || length(k) != 1 || k < 2 || k > nrow(dtmsx)) {
   stop(
     paste0(
@@ -188,11 +215,11 @@ if (!is.numeric(k) || length(k) != 1 || k < 2 || k > nrow(dtmsx)) {
 }
 
 # Calculate pairwise cosine distances between documents
-distmatrix <- proxy::dist(dtmsx, method = 'cosine')
+distmatrix <- proxy::dist(dtmsx, method = distance_method)
 distmatrix
 
 # Ward's method attempts to form clusters by minimising within-cluster variation
-fit = hclust(distmatrix, method = 'ward.D')
+fit = hclust(distmatrix, method = clustering_method)
 # Plot the dendrogram
 plot(fit, hang = -1, main = 'Abstracts Cosine Distance')
 
