@@ -1,8 +1,9 @@
 ---
 title: "Text Mining Analysis"
 output:
-  html_document:
-    df_print: paged
+pdf_document: default
+html_document:
+df_print: paged
 date: "2025-05-28"
 ---
 
@@ -60,15 +61,32 @@ Sports2.txt
 
 ```{r}
 # Create corpus
-cname <- file.path(".", "CorpusAbstracts")
+tryCatch({
+  cname <- file.path(".", "CorpusAbstracts")
+  if (!dir.exists(cname)) {
+    stop("Corpus folder 'CorpusAbstracts' was not found.")
+  }
+  # Summary of docs to analyse
+  docs <- Corpus(DirSource(cname))
+  if (length(docs) == 0) {
+    stop("The CorpusAbstracts folder is empty. Please add .txt files.")
+  }
+  if (length(docs) < 2) {
+  stop("At least 2 documents are required for clustering.")
+  }
+  message("Corpus successfully loaded.")
+}, error = function(e) {
+  message(
+    "Unable to load corpus.\n",
+    "Please check that:\n",
+    "1. A folder called 'CorpusAbstracts' exists in the project directory.\n",
+    "2. The folder contains .txt files.\n",
+    "3. The files can be read."
+  )
+})
 
-if (!dir.exists(cname)) {
-  stop("Cannot find CorpusAbstracts folder.")
-}
-
-# Summary of docs to analyse
-docs <- Corpus(DirSource(cname))
 summary(docs)
+
 ```
 
 The following transformations are applied:
@@ -112,16 +130,28 @@ The DTM is created from the processed corpus. Initially, the DTM may contain a l
 The sparsity threshold determines how much of the DTM must contain zero values before a term is removed. The threshold should generally be adjusted through trial and error to obtain a manageable number of useful terms.
 
 ```{r}
-# Create document term matrix
-dtm <- DocumentTermMatrix(docs)
+# Customise the sparse threshold between 0 and 1
+sparse_threshold = 0.45
+
+tryCatch({
+  # Create document term matrix
+  dtm <- DocumentTermMatrix(docs)
+  if (ncol(dtm) == 0) {
+    stop("The document-term matrix contains no terms after preprocessing.")
+  }
+  # Remove sparse terms i.e Cols with at least sparse_threshold*100% empty cells
+  dtms <- removeSparseTerms(dtm, sparse_threshold)
+  if (ncol(dtms) == 0) {
+    stop("No terms remain after sparse-term removal. Try increasing the sparsity threshold.")
+  }
+  
+  message("Document-term matrix successfully created.")
+  
+}, error = function(e) {
+  message("DTM ERROR: ", e$message)
+})
+
 inspect(dtm)
-
-# The first value represents the number of documents and the second represents the number of terms.
-dim(dtm)
-
-# Remove sparse terms i.e Cols with at least 45% empty cells
-dtms <- removeSparseTerms(dtm, 0.45)
-inspect(dtms)
 
 # Display the reduced DTM as a table.
 dtmsx <- as.matrix(dtms)
@@ -149,6 +179,13 @@ Hierarchical clustering uses the calculated distances to progressively combine s
 ```{r fig.height=15, fig.width=20}
 # Change k according to the number of clusters you want to investigate
 k <- 2
+if (!is.numeric(k) || length(k) != 1 || k < 2 || k > nrow(dtmsx)) {
+  stop(
+    paste0(
+      "Invalid k. Please choose a whole number between 2 and ",
+      nrow(dtmsx), ".")
+    )
+}
 
 # Calculate pairwise cosine distances between documents
 distmatrix <- proxy::dist(dtmsx, method = 'cosine')
@@ -160,7 +197,7 @@ fit = hclust(distmatrix, method = 'ward.D')
 plot(fit, hang = -1, main = 'Abstracts Cosine Distance')
 
 # Create clusters
-groups <- cutree(fit, k)
+groups <- cutree(fit, k = k)
 # Display the cluster assigned to each document
 groups
 
@@ -211,13 +248,28 @@ TA
 
 # Calculate approximate clustering accuracy by taking the largest group within each cluster as the correctly classified documents
 cluster_accuracy <- function(TA) {
-  correct <- sum(apply(TA, 2, max))
-  total <- sum(TA)
-  accuracy <- correct / total
-  return(accuracy)
+  tryCatch({
+    if (!is.matrix(TA) && !is.table(TA)) {
+      stop("TA must be a confusion matrix or table.")
+    }
+    if (sum(TA) == 0) {
+      stop("The confusion matrix contains no observations.")
+    }
+    
+    correct <- sum(apply(TA, 2, max))
+    total <- sum(TA)
+    accuracy <- correct / total
+    return(accuracy)
+    
+  }, error = function(e) {
+    message("Unable to calculate clustering accuracy: ", e$message)
+    return(NA)
+  })
 }
 
-cluster_accuracy(TA)
+accuracy <- cluster_accuracy(TA)
+cat("Clustering accuracy:", round(accuracy * 100, 2), "%")
+
 ```
 ---
 
