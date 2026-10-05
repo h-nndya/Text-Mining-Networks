@@ -6,7 +6,9 @@ similar themes across document collections.
 ## Overview
 
 This project uses text mining and network analysis to identify
-relationships between themes across a collection of documents.
+relationships between themes across a collection of documents. Initially a 
+university project with specific abstracts, amended to become applicable to 
+other corpora.
 
 ## Features
 
